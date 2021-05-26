@@ -1,3 +1,84 @@
+use std::{borrow::Cow, collections::HashMap};
+
+pub use error::*;
+
+mod error;
+
+#[cfg(target_os = "linux")]
+pub const DEFAULT_SECTION_NAME: &str = ".emboss_meta";
+
+#[cfg(target_os = "macos")]
+pub const DEFAULT_SECTION_NAME: &str = "__emboss_meta";
+
+const IDENT_END: u8 = b'=';
+const VALUE_END: u8 = b'\0';
+
+/// Extract embossed metadata from the raw bytes in a section
+///
+/// The metadata is expected to be written in the following format:
+///
+/// <IDENTIFIER>=<VALUE>\0
+///
+/// Where <IDENTIFIER> is the name of the identifier, <VALUE> is the embossed value,
+/// and \0 is a null byte
+///
+/// Please note that as this format assumes identifiers ending with '=', identifiers may
+/// not contain an equal sign
+///
+/// Example usage:
+///
+/// ```
+/// // Example pulled directly from an example binary
+/// let data = "VERGEN_RUSTC_CHANNEL=stable\0VERGEN_RUSTC_COMMIT_DATE=2021-05-09\0";
+///
+/// let metadata = emboss::extract_metadata(data.as_bytes()).unwrap();
+///
+/// let value = metadata.get("VERGEN_RUSTC_CHANNEL").unwrap();
+/// assert_eq!(value, "stable");
+///
+/// let value = metadata.get("VERGEN_RUSTC_COMMIT_DATE").unwrap();
+/// assert_eq!(value, "2021-05-09");
+/// ```
+pub fn extract_metadata(buf: &[u8]) -> Result<HashMap<Cow<str>, Cow<str>>, EmbossError> {
+    let mut metadata = HashMap::new();
+
+    let mut ident = None;
+    let mut start = 0;
+    let mut parsing_ident = true;
+
+    for (i, c) in buf.iter().enumerate() {
+        match c {
+            // We've found an equal sign so the identifier is finished
+            &IDENT_END if parsing_ident => {
+                let raw_ident = String::from_utf8_lossy(&buf[start..i]);
+                if raw_ident.trim().is_empty() {
+                    return Err(EmbossError::MissingIdent);
+                }
+
+                ident = Some(raw_ident);
+                start = i + 1;
+                parsing_ident = false;
+            }
+            // We've reached an unexpected null byte while parsing the identifier... somethings wrong
+            &VALUE_END if parsing_ident => {
+                return Err(EmbossError::UnexpectedValueEnd);
+            }
+            // We've hit a null byte while extracting the value-- we're done, the string is complete
+            &VALUE_END => {
+                let ident = ident.take().expect("we should have an ident by now");
+                let value = String::from_utf8_lossy(&buf[start..i]);
+
+                metadata.insert(ident, value);
+                start = i + 1;
+                parsing_ident = true;
+            }
+            _ => {}
+        }
+    }
+
+    Ok(metadata)
+}
+
 #[macro_export]
 macro_rules! emboss {
     (groups=$($group: ident),+) => {
@@ -34,7 +115,10 @@ macro_rules! emboss {
         emboss!(VERGEN_CARGO_PROFILE);
         emboss!(VERGEN_CARGO_TARGET_TRIPLE);
     };
-    (group=sysinfo)=> {
+    (group=rust) => {
+        emboss!(groups=rustc,cargo);
+    };
+    (group=sysinfo) => {
         emboss!(VERGEN_SYSINFO_NAME);
         emboss!(VERGEN_SYSINFO_OS_VERSION);
         emboss!(VERGEN_SYSINFO_USER);
@@ -56,16 +140,89 @@ macro_rules! emboss {
         emboss!(VERGEN_CARGO_PROFILE);
         emboss!(VERGEN_CARGO_FEATURES);
     };
+    // TODO(Matt): There is an issue using $crate::DEFAULT_SECTION_NAME here as $section_name
+    //  It would simplify the code a bit, but it seems like we can't pass an ident
+    //  in an expr context?
     ($var_name: ident) => {
-        #[used]
-        static $var_name: &str = concat!(
-            stringify!($var_name),
-            "=",
-            env!(stringify!($var_name)),
-            ";"
-        );
+        #[cfg(target_os = "linux")]
+        emboss!($var_name, ".emboss_meta");
+
+        #[cfg(target_os = "macos")]
+        emboss!($var_name, "__DATA,__emboss_meta");
+    };
+    ($var_name: ident, $section_name: expr) => {
+        emboss!($var_name, $section_name, env!(stringify!($var_name)));
+    };
+    // Some interesting things going on in this macro! See:
+    //  Tricky bits with expanding in attrs: https://github.com/rust-lang/rust/pull/83366
+    //  Using modules instead of vars: https://github.com/rust-lang/rust/issues/29599
+    //  On Transmuting: https://github.com/rust-lang/rust/issues/70239
+    ($var_name: ident, $section_name: expr, $value: expr) => {
+        mod $var_name {
+            type DataPtr = *const [u8; STRUCTURED.as_bytes().len()];
+            type Data = [u8; STRUCTURED.as_bytes().len()];
+
+            const STRUCTURED: &str = concat!(stringify!($var_name), "=", $value, "\0");
+
+            #[used]
+            #[link_section = $section_name]
+            static EMBOSSED: Data = unsafe {
+                *std::mem::transmute::<DataPtr, &Data>(STRUCTURED.as_ptr() as DataPtr)
+            };
+        }
     };
     () => {
         emboss!(group=rsps);
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extract_basic() {
+        let data = "key=value\0";
+        let metadata = extract_metadata(data.as_bytes()).unwrap();
+        let value = metadata.get("key").unwrap();
+        assert_eq!(value, "value")
+    }
+
+    #[test]
+    fn extract_with_eq_sign_in_value() {
+        let data = "expr=2+2=4\0";
+        let metadata = extract_metadata(data.as_bytes()).unwrap();
+        let value = metadata.get("expr").unwrap();
+        assert_eq!(value, "2+2=4")
+    }
+
+    #[test]
+    fn extract_fail_on_unfinished_ident() {
+        let data = "expr\0";
+        if let Err(error) = extract_metadata(data.as_bytes()) {
+            return assert_eq!(error, EmbossError::UnexpectedValueEnd);
+        }
+
+        assert!(false, "expected an error to be returned")
+    }
+
+    #[test]
+    fn extract_fail_blank_ident() {
+        let data = "=foo";
+        if let Err(error) = extract_metadata(data.as_bytes()) {
+            return assert_eq!(error, EmbossError::MissingIdent);
+        }
+
+        assert!(false, "expected an error to be returned")
+    }
+
+    #[test]
+    fn extract_fail_blank_ident_with_spaces() {
+        let data = "  =foo";
+        if let Err(error) = extract_metadata(data.as_bytes()) {
+            return assert_eq!(error, EmbossError::MissingIdent);
+        }
+
+        assert!(false, "expected an error to be returned")
+    }
 }

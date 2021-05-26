@@ -1,9 +1,9 @@
 [package]
 name = "emboss"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Matt Stavola <matt@stavola.xyz>"]
 edition = "2018"
-description = "A small macro to embed information from the environment into your final binary"
+description = "A small macro to embed metadata as an ELF/Mach-O section in your final binary"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/mbStavola/emboss/"
 
