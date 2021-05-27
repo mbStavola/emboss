@@ -5,7 +5,7 @@ pub use error::*;
 mod error;
 
 #[cfg(target_os = "linux")]
-pub const DEFAULT_SECTION_NAME: &str = ".emboss_meta";
+pub const DEFAULT_SECTION_NAME: &str = ".note.emboss_meta";
 
 #[cfg(target_os = "macos")]
 pub const DEFAULT_SECTION_NAME: &str = "__emboss_meta";
@@ -145,7 +145,7 @@ macro_rules! emboss {
     //  in an expr context?
     ($var_name: ident) => {
         #[cfg(target_os = "linux")]
-        emboss!($var_name, ".emboss_meta");
+        emboss!($var_name, ".note.emboss_meta");
 
         #[cfg(target_os = "macos")]
         emboss!($var_name, "__DATA,__emboss_meta");
