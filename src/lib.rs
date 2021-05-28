@@ -157,9 +157,9 @@ macro_rules! emboss {
     //  Tricky bits with expanding in attrs: https://github.com/rust-lang/rust/pull/83366
     //  Using modules instead of vars: https://github.com/rust-lang/rust/issues/29599
     //  On Transmuting: https://github.com/rust-lang/rust/issues/70239
+    //  Disabling the transmute lint: https://rust-lang.github.io/rust-clippy/master/index.html#transmute_ptr_to_ref
     ($var_name: ident, $section_name: expr, $value: expr) => {
         mod $var_name {
-            type DataPtr = *const [u8; STRUCTURED.as_bytes().len()];
             type Data = [u8; STRUCTURED.as_bytes().len()];
 
             const STRUCTURED: &str = concat!(stringify!($var_name), "=", $value, "\0");
@@ -167,7 +167,8 @@ macro_rules! emboss {
             #[used]
             #[link_section = $section_name]
             static EMBOSSED: Data = unsafe {
-                *std::mem::transmute::<DataPtr, &Data>(STRUCTURED.as_ptr() as DataPtr)
+                #[allow(clippy::transmute_ptr_to_ref)]
+                *std::mem::transmute::<*const Data, &Data>(STRUCTURED.as_ptr() as *const Data)
             };
         }
     };
