@@ -4,11 +4,13 @@ pub use error::*;
 
 mod error;
 
-#[cfg(target_os = "linux")]
-pub const DEFAULT_SECTION_NAME: &str = ".note.emboss_meta";
+pub const LINUX_SECTION_NAME: &str = include_str!("linux_section.txt");
+pub const MACOS_SECTION_NAME: &str = include_str!("macos_section.txt");
 
+#[cfg(target_os = "linux")]
+pub const DEFAULT_SECTION_NAME: &str = LINUX_SECTION_NAME;
 #[cfg(target_os = "macos")]
-pub const DEFAULT_SECTION_NAME: &str = "__emboss_meta";
+pub const DEFAULT_SECTION_NAME: &str = MACOS_SECTION_NAME;
 
 const IDENT_END: u8 = b'=';
 const VALUE_END: u8 = b'\0';
@@ -47,9 +49,9 @@ pub fn extract_metadata(buf: &[u8]) -> Result<HashMap<Cow<str>, Cow<str>>, Embos
     let mut parsing_ident = true;
 
     for (i, c) in buf.iter().enumerate() {
-        match c {
+        match *c {
             // We've found an equal sign so the identifier is finished
-            &IDENT_END if parsing_ident => {
+            IDENT_END if parsing_ident => {
                 let raw_ident = String::from_utf8_lossy(&buf[start..i]);
                 if raw_ident.trim().is_empty() {
                     return Err(EmbossError::MissingIdent);
@@ -60,11 +62,11 @@ pub fn extract_metadata(buf: &[u8]) -> Result<HashMap<Cow<str>, Cow<str>>, Embos
                 parsing_ident = false;
             }
             // We've reached an unexpected null byte while parsing the identifier... somethings wrong
-            &VALUE_END if parsing_ident => {
+            VALUE_END if parsing_ident => {
                 return Err(EmbossError::UnexpectedValueEnd);
             }
             // We've hit a null byte while extracting the value-- we're done, the string is complete
-            &VALUE_END => {
+            VALUE_END => {
                 let ident = ident.take().expect("we should have an ident by now");
                 let value = String::from_utf8_lossy(&buf[start..i]);
 
@@ -140,15 +142,12 @@ macro_rules! emboss {
         emboss!(VERGEN_CARGO_PROFILE);
         emboss!(VERGEN_CARGO_FEATURES);
     };
-    // TODO(Matt): There is an issue using $crate::DEFAULT_SECTION_NAME here as $section_name
-    //  It would simplify the code a bit, but it seems like we can't pass an ident
-    //  in an expr context?
     ($var_name: ident) => {
         #[cfg(target_os = "linux")]
-        emboss!($var_name, ".note.emboss_meta");
+        emboss!($var_name, include_str!("linux_section.txt"));
 
         #[cfg(target_os = "macos")]
-        emboss!($var_name, "__DATA,__emboss_meta");
+        emboss!($var_name, include_str!("macos_section.txt"));
     };
     ($var_name: ident, $section_name: expr) => {
         emboss!($var_name, $section_name, env!(stringify!($var_name)));
@@ -204,7 +203,7 @@ mod tests {
             return assert_eq!(error, EmbossError::UnexpectedValueEnd);
         }
 
-        assert!(false, "expected an error to be returned")
+        panic!("expected an error to be returned")
     }
 
     #[test]
@@ -214,7 +213,7 @@ mod tests {
             return assert_eq!(error, EmbossError::MissingIdent);
         }
 
-        assert!(false, "expected an error to be returned")
+        panic!("expected an error to be returned")
     }
 
     #[test]
@@ -224,6 +223,6 @@ mod tests {
             return assert_eq!(error, EmbossError::MissingIdent);
         }
 
-        assert!(false, "expected an error to be returned")
+        panic!("expected an error to be returned")
     }
 }
