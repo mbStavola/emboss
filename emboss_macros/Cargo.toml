@@ -1,0 +1,18 @@
+[package]
+name = "emboss_macros"
+version = "0.4.0"
+authors = ["Matt Stavola <matt@stavola.xyz>"]
+edition = "2024"
+description = "Proc macro implementations for emboss"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/mbStavola/emboss/"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+emboss_common = { version = "0.4.0", path = "../emboss_common" }
+proc-macro2  = "1"
+quote = "1"
+serde = { workspace = true }
+serde_tokenstream = "0.2"

@@ -5,7 +5,7 @@
 
 ![][i-emboss]
 
-A small macro to embed metadata as an ELF/Mach-O section in your final binary.
+Macros to embed metadata as an ELF/Mach-O section in your final binary.
 
 Pairs quite nicely with [vergen][vergen].
 
@@ -18,127 +18,91 @@ Include `emboss` in your `Cargo.toml`:
 # <snip>
 
 [dependencies]
-emboss = "0.2.0"
+emboss = "0.4.0"
 ```
 
-Import the macro and call it with the name of the environment variable you want to embed:
+Import the emboss macro and call it with the key and value you want to embed:
 
 ```rust
 use emboss::emboss;
 
-emboss!(CARGO_PKG_VERSION);
+emboss!(key = "my-custom-value", value = "1");
 ```
 
 Run a quick `cargo build` and then examine the resulting binary:
 
 ```bash
 $ strings target/debug/kana | grep CARGO_PKG_VERSION
-CARGO_PKG_VERSION=0.1.0
+my-custom-value=1
 ```
 
-You can either parse this yourself from the binary or use [rsps][rsps] to fetch it from a running process.
+You can also parse this yourself from the binary or use [rsps][rsps] to fetch it from a running process.
 
-**Note**: if the environment variable isn't present, the macro invocation will fail. If this annoys you, please see [this issue][env-macro-limitation].
+## Detailed Usage
 
-## Usage with vergen
+### Emboss Many
 
-This crate has many convenience calls for use with `vergen`.
-
-To get started, include both `vergen` and `emboss` in your `Cargo.toml`:
-
-```toml
-[package]
-# <snip>
-build = "build.rs"
-
-[build-dependencies]
-vergen = "5.1.5"
-
-[dependencies]
-emboss = "0.2.0"
-```
-
-Set up your `build.rs` to utilize `vergen`:
+You can emboss multiple key value pairs at once using `emboss_many`:
 
 ```rust
-use vergen::{Config, vergen};
+use emboss::emboss_many;
 
-fn main() -> Result<(), ()> {
-    let mut config = Config::default();
-
-    vergen(config).unwrap();
-
-    Ok(())
-}
+// The `pairs` property takes an array of key-value tuples
+emboss_many!(pairs = [("foo", "1"), ("bar", "2")]);
 ```
 
-Finally, import and call `emboss`:
+### Emboss From Environment Variables
+
+If you need to pull the value of a environment variable for the embossing, there is `emboss_env`:
 
 ```rust
-use emboss::emboss;
+use emboss::emboss_env;
 
-// Includes every rustc related env var provided by vergen
-emboss!(group=rustc);
+// `env_var` will be the environment variable to evaluate at compile time
+// `key` will be the key in the embossing, same as it is in the normal emboss macro
+// If you omit `key`, it'll reuse the env var as the `key`
+emboss_env!(env_var = "FOO_VAR", key = "foo");
 ```
 
-If all went well, following a build, you should see some `vergen` attributes in the final binary:
-
-```bash
-$ strings target/debug/kana | grep VERGEN
-VERGEN_RUSTC_CHANNEL=stable
-VERGEN_RUSTC_COMMIT_DATE=2021-05-09
-VERGEN_RUSTC_COMMIT_HASH=9bc8c42bb2f19e745a63f3445f1ac248fb015e53
-VERGEN_RUSTC_HOST_TRIPLE=x86_64-apple-darwin
-VERGEN_RUSTC_LLVM_VERSION=12.0
-VERGEN_RUSTC_SEMVER=1.52.1
-```
-
-## Config
+If the environment variable is not present at compile time, the macro will fail. You can change this behavior with the `fallback` property:
 
 ```rust
-// Emboss an env variable by name
-emboss!(FOO_ENV_VAR);
+use emboss::emboss_env;
 
-// Emboss an env variable into a custom section
-emboss!(BAR_ENV_VAR, "__DATA,__custom_data");
+// The `Fail` variant is the default behavior, blowing up when the `env_var` is missing  
+emboss_env!(env_var = "DOES_NOT_EXIST", fallback = Fail);
 
-// Emboss a specific value into a custom section
-emboss!(BAZ_ENV_VAR, ".zu", "Can you feel the storm? It's coming.");
+// The `Empty` variant will use an empty value when the `env_var` is missing  
+emboss_env!(env_var = "DOES_NOT_EXIST", fallback = Empty);
 
-// Includes `VERGEN_BUILD_*`
-emboss!(group=build);
-
-// Includes `VERGEN_GIT_*`
-emboss!(group=git);
-
-// Includes `VERGEN_RUSTC_*`
-emboss!(group=rustc);
-
-// Includes `VERGEN_CARGO_*`
-emboss!(group=cargo);
-
-// Includes `VERGEN_SYSINFO_*`
-emboss!(group=sysinfo);
-
-// Includes both the rustc and cargo groups
-emboss!(group=rust);
-
-// Includes the following environment variables:
-//  VERGEN_BUILD_TIMESTAMP
-//  VERGEN_BUILD_SEMVER
-//  VERGEN_RUSTC_SEMVER 
-//  VERGEN_CARGO_PROFILE 
-//  VERGEN_CARGO_FEATURES 
-// Which rsps can use to display detailed information about your binary when it runs
-emboss!(group=rsps);
-
-// An alias for the above
-emboss!();
-
-// You can also specify multiple groups at once
-// This will include both `VERGEN_SYSINFO_*` and `VERGEN_GIT_*`
-emboss!(groups=sysinfo,git);
+// The `Value` variant will use a specific, user-specified value when the `env_var` is missing
+emboss_env!(env_var = "DOES_NOT_EXIST", fallback = Value("1"));
 ```
+
+### Emboss Many From Environment Variables
+
+Similar to `emboss_many`, but for values pulled from environment variables. You can use all the same properties present in `emboss_env`:
+
+```rust
+use emboss::emboss_envs;
+
+// The `env_vars` property takes an array of environment variable spec structs
+emboss_envs!(env_vars = [
+    { env_var = "FOO_VAR" },
+    { env_var = "BAR_VAR", key = "bar", fallback = Empty },
+    { env_var = "BAZ_VAR", key = "baz", fallback = Value("3") },
+]);
+```
+
+### Extended Arguments
+
+All emboss macros support the following properties:
+
+- `stored_in`: The name of the section to store embossed data. Defaults to `.emboss.meta`.
+- `separator`: The character to use as a separator between embossed keys and their associated values. Defaults to `=`.
+- `terminator`: The character to use as a terminator for embossed key-value pairs. Defaults to a null byte.
+
+On macOS, an additional `segment` property is exposed which allows you to customize the segment that the section is placed in. By default embossed data will appear in the __DATA segment.
 
 ## Reading Embossed Data
 
@@ -153,8 +117,10 @@ fn read_binary_metadata(file: &object::File) {
   //    VERGEN_RUSTC_CHANNEL=stable\0VERGEN_RUSTC_COMMIT_DATE=2021-05-09\0
   let section = file.section_by_name(emboss::DEFAULT_SECTION_NAME).expect("metadata should exist");
   let data = section.data().expect("data should be available");
+  let text = String::from_utf8_lossy(data).to_string();
 
-  let metadata = emboss::extract_metadata(data.as_bytes()).expect("should be able to parse metadata");
+  let metadata = emboss::extract_metadata(&text, emboss::EmbossingOptions::default())
+          .expect("should be able to parse metadata");
 
   let value = metadata.get("VERGEN_RUSTC_CHANNEL").expect("VERGEN_RUSTC_CHANNEL should be present");
   assert_eq!(value, "stable");
@@ -181,7 +147,7 @@ Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
 dual licensed as above, without any additional terms or conditions.
 
-[i-emboss]: ./EMBOSS.jpg
+[i-emboss]: https://github.com/mbStavola/emboss/blob/master/EMBOSS.jpg
 [vergen]: https://github.com/rustyhorde/vergen
 [rsps]: https://github.com/mbStavola/rsps
 [env-macro-limitation]: https://github.com/rust-lang/rust/issues/48952

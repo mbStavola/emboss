@@ -1,10 +1,11 @@
-[package]
-name = "emboss"
-version = "0.3.2"
-authors = ["Matt Stavola <matt@stavola.xyz>"]
-edition = "2018"
-description = "A small macro to embed metadata as an ELF/Mach-O section in your final binary"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/mbStavola/emboss/"
+[workspace]
+resolver = "3"
+members = [
+    "emboss",
+    "emboss_macros",
+    "emboss_common",
+    "emboss_test",
+]
 
-[dependencies]
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }

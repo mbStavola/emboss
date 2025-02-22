@@ -1,0 +1,11 @@
+[package]
+name = "emboss_common"
+version = "0.4.0"
+authors = ["Matt Stavola <matt@stavola.xyz>"]
+edition = "2024"
+description = "Common types and constants for emboss"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/mbStavola/emboss/"
+
+[dependencies]
+serde = { workspace = true }
