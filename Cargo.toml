@@ -1,6 +1,6 @@
 [package]
 name = "emboss"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Matt Stavola <matt@stavola.xyz>"]
 edition = "2018"
 description = "A small macro to embed metadata as an ELF/Mach-O section in your final binary"
