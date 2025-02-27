@@ -3,8 +3,10 @@ use proc_macro::TokenStream;
 use quote::quote;
 use serde::Deserialize;
 
-use crate::emboss_token;
-use crate::internals::env::EnvVarFallback;
+use crate::{
+    codegen::emboss_token_multiple,
+    macro_impl::{Embossable, env::EnvVarFallback},
+};
 
 #[derive(Deserialize)]
 struct EnvVarsEmbossing {
@@ -17,44 +19,53 @@ struct EnvVarsEmbossing {
 #[derive(Deserialize)]
 struct EnvVarSpec {
     env_var: String,
-    
+
     key: Option<String>,
+
+    variant_name: Option<String>,
 
     #[serde(default)]
     fallback: EnvVarFallback,
 }
 
-pub fn emboss_envs(input: TokenStream) -> TokenStream {
+pub(crate) fn emboss_envs(input: TokenStream) -> TokenStream {
     let EnvVarsEmbossing { env_vars, options } =
         match serde_tokenstream::from_tokenstream::<EnvVarsEmbossing>(&input.into()) {
             Ok(val) => val,
             Err(err) => return err.to_compile_error().into(),
         };
 
-    let mut blocks = Vec::with_capacity(env_vars.len());
-    for EnvVarSpec { env_var, key, fallback } in env_vars {
+    let mut pairs = Vec::with_capacity(env_vars.len());
+    for EnvVarSpec {
+        env_var,
+        key,
+        variant_name,
+        fallback,
+    } in env_vars
+    {
         let key = key.unwrap_or_else(|| env_var.clone());
         let value = match fallback {
             EnvVarFallback::Fail => quote! { env!(#env_var) },
-            EnvVarFallback::Empty => quote! {{ 
-                match option_env!(#env_var) { 
-                    Some(val) => val, 
+            EnvVarFallback::Empty => quote! {{
+                match option_env!(#env_var) {
+                    Some(val) => val,
                     None => "",
-                } 
+                }
             }},
-            EnvVarFallback::Value(fallback) => quote! {{ 
-                match option_env!(#env_var) { 
-                    Some(val) => val, 
+            EnvVarFallback::Value(fallback) => quote! {{
+                match option_env!(#env_var) {
+                    Some(val) => val,
                     None => #fallback,
-                } 
+                }
             }},
         };
-        
-        let tokens = emboss_token(&key, value, options.clone());
-        blocks.push(tokens);
+
+        pairs.push(Embossable {
+            key,
+            value,
+            variant_name,
+        });
     }
 
-    quote! {
-        #(#blocks)*
-    }.into()
+    emboss_token_multiple(pairs, options).into()
 }

@@ -18,7 +18,7 @@ Include `emboss` in your `Cargo.toml`:
 # <snip>
 
 [dependencies]
-emboss = "0.4.0"
+emboss = "0.5.0"
 ```
 
 Import the emboss macro and call it with the key and value you want to embed:
@@ -32,7 +32,7 @@ emboss!(key = "my-custom-value", value = "1");
 Run a quick `cargo build` and then examine the resulting binary:
 
 ```bash
-$ strings target/debug/kana | grep CARGO_PKG_VERSION
+$ strings target/debug/kana | grep my-custom-value
 my-custom-value=1
 ```
 
@@ -47,8 +47,11 @@ You can emboss multiple key value pairs at once using `emboss_many`:
 ```rust
 use emboss::emboss_many;
 
-// The `pairs` property takes an array of key-value tuples
-emboss_many!(pairs = [("foo", "1"), ("bar", "2")]);
+// The `items` property takes an array of key-value structs
+emboss_many!(items = [
+    { key = "foo", value = "1" },
+    { key = "bar", value = "2" }
+]);
 ```
 
 ### Emboss From Environment Variables
@@ -94,39 +97,91 @@ emboss_envs!(env_vars = [
 ]);
 ```
 
+### Exports and Enum Variants
+
+All emboss macros support the `export_name` parameter, which creates a module with a public API for accessing embossed data:
+
+```rust
+use emboss::emboss;
+
+emboss!(
+    key = "app-version", 
+    value = "1.0.0", 
+    export_name = "version_info"
+);
+
+// Later in your code:
+let (_, version) = version_info::EMBOSSED.get_by_key("app-version").unwrap();
+println!("App version: {}", version);
+```
+
+You can also customize enum variant names for better ergonomics:
+
+```rust
+use emboss::emboss_many;
+
+emboss_many!(
+    items = [
+        { key = "version", value = "1.0.0", variant_name = "Version" },
+        { key = "build-id", value = "abc123", variant_name = "BuildId" }
+    ],
+    export_name = "app_info"
+);
+
+// Access via enum variants
+let (_, version) = app_info::EMBOSSED.get_by_kind(app_info::EmbossedKeyKind::Version);
+let (_, build_id) = app_info::EMBOSSED.get_by_kind(app_info::EmbossedKeyKind::BuildId);
+```
+
 ### Extended Arguments
 
 All emboss macros support the following properties:
 
 - `stored_in`: The name of the section to store embossed data. Defaults to `.emboss.meta`.
-- `separator`: The character to use as a separator between embossed keys and their associated values. Defaults to `=`.
-- `terminator`: The character to use as a terminator for embossed key-value pairs. Defaults to a null byte.
 
-On macOS, an additional `segment` property is exposed which allows you to customize the segment that the section is placed in. By default embossed data will appear in the __DATA segment.
+On macOS, an additional `segment` parameter allows you to customize the segment that the section is placed in:
+
+```rust
+emboss!(
+    key = "macos-version", 
+    value = "14.0", 
+    segment = "__DATA", 
+    stored_in = "__custom_section"
+);
+```
+
+By default, the segment will be `__DATA`.
 
 ## Reading Embossed Data
 
-We provide a simple helper function to retrieve embossed data from a given sequence of bytes.
+We provide helper functions to retrieve embossed data from a given sequence of bytes.
 
 Here is an example using the [object][object] crate:
 
 ```rust
+use emboss::extract;
+
 fn read_binary_metadata(file: &object::File) {
   // Pull the raw data from the metadata section of the binary
-  // For this example, we'll assume that the following is returned:
-  //    VERGEN_RUSTC_CHANNEL=stable\0VERGEN_RUSTC_COMMIT_DATE=2021-05-09\0
-  let section = file.section_by_name(emboss::DEFAULT_SECTION_NAME).expect("metadata should exist");
+  let section = file.section_by_name(emboss_common::DEFAULT_SECTION_NAME)
+      .expect("metadata should exist");
   let data = section.data().expect("data should be available");
-  let text = String::from_utf8_lossy(data).to_string();
+  
+  // Parse the embossed data
+  let metadata = extract::extract_metadata_into_hashmap(data)
+      .expect("should be able to parse metadata");
 
-  let metadata = emboss::extract_metadata(&text, emboss::EmbossingOptions::default())
-          .expect("should be able to parse metadata");
-
-  let value = metadata.get("VERGEN_RUSTC_CHANNEL").expect("VERGEN_RUSTC_CHANNEL should be present");
-  assert_eq!(value, "stable");
-
-  let value = metadata.get("VERGEN_RUSTC_COMMIT_DATE").expect("VERGEN_RUSTC_COMMIT_DATE should be present");
-  assert_eq!(value, "2021-05-09");
+  // Access values by key
+  let version = metadata.get("version").expect("version should be present");
+  println!("Version: {}", version);
+  
+  // Alternatively, get as a vector of pairs
+  let pairs = extract::extract_metadata_into_vec(data)
+      .expect("should be able to parse metadata");
+  
+  for (key, value) in pairs {
+      println!("{}: {}", key, value);
+  }
 }
 ```
 
@@ -150,7 +205,6 @@ dual licensed as above, without any additional terms or conditions.
 [i-emboss]: https://github.com/mbStavola/emboss/blob/master/EMBOSS.jpg
 [vergen]: https://github.com/rustyhorde/vergen
 [rsps]: https://github.com/mbStavola/rsps
-[env-macro-limitation]: https://github.com/rust-lang/rust/issues/48952
 [object]: https://github.com/gimli-rs/object
 [apache-license]: ./LICENSE-APACHE
 [mit-license]: ./LICENSE-MIT
