@@ -1,26 +1,32 @@
-use std::{error::Error, fmt};
+use std::{error::Error, fmt, str::Utf8Error};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum EmbossError {
-    UnexpectedValueEnd,
-    MissingIdent,
+    EmptyEmbossing,
+    IncorrectLeadingMagic,
+    InvalidEmbossedCString,
+    InvalidUtf8(Utf8Error),
 }
 
 impl fmt::Display for EmbossError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            EmbossError::UnexpectedValueEnd => {
+            EmbossError::EmptyEmbossing => {
+                write!(f, "Empty Embossing")
+            }
+            EmbossError::IncorrectLeadingMagic => {
                 write!(
                     f,
-                    "Prematurely reached the end of metadata value during extraction"
+                    "Leading bytes did not correspond to a valid Emboss magic number"
                 )
             }
-            EmbossError::MissingIdent => {
+            EmbossError::InvalidEmbossedCString => {
                 write!(
                     f,
-                    "Metadata identifier is either blank or comprised entirely of whitespace"
+                    "No terminating null-byte was found in the embossed string"
                 )
             }
+            EmbossError::InvalidUtf8(err) => err.fmt(f),
         }
     }
 }

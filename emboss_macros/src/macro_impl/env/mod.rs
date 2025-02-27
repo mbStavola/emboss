@@ -6,7 +6,6 @@ mod emboss_envs;
 pub use emboss_env::*;
 pub use emboss_envs::*;
 
-
 #[derive(Deserialize)]
 enum EnvVarFallback {
     Fail,
