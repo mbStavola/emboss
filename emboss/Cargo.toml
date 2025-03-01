@@ -1,12 +1,13 @@
 [package]
 name = "emboss"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Matt Stavola <matt@stavola.xyz>"]
 edition = "2024"
 description = "Macros to embed metadata as an ELF/Mach-O section in your final binary"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/mbStavola/emboss/"
+rust-version = "1.85.0"
 
 [dependencies]
-emboss_macros = { version = "0.4.0", path = "../emboss_macros" }
-emboss_common = { version = "0.4.0", path = "../emboss_common" }
+emboss_macros = { version = "0.5.0", path = "../emboss_macros" }
+emboss_common = { version = "0.5.0", path = "../emboss_common" }
