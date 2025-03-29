@@ -8,7 +8,7 @@ use crate::error::EmbossError;
 ///
 /// The complete binary format is as follows:
 ///
-/// ```
+/// ```text
 /// [MAGIC_BYTES (4 bytes)][COUNT (1 byte)][KEY_1]\0[VALUE_1]\0[KEY_2]\0[VALUE_2]\0...
 /// ```
 ///
@@ -42,7 +42,7 @@ pub fn extract_metadata_into_vec(buf: &[u8]) -> Result<Vec<(&str, &str)>, Emboss
 /// Extract embossed metadata into a HashMap for key-based lookups
 ///
 /// This function extracts the same data as `extract_metadata_into_vec`, but returns
-/// a HashMap for efficient key-based lookups. See `extract_metadata_into_vec` for 
+/// a HashMap for efficient key-based lookups. See `extract_metadata_into_vec` for
 /// details on the expected data format.
 ///
 /// # Example

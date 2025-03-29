@@ -1,6 +1,6 @@
 [package]
 name = "emboss_macros"
-version = "0.5.0"
+version = "0.5.1"
 authors = ["Matt Stavola <matt@stavola.xyz>"]
 edition = "2024"
 description = "Proc macro implementations for emboss"
@@ -12,7 +12,8 @@ rust-version = "1.85.0"
 proc-macro = true
 
 [dependencies]
-emboss_common = { version = "0.5.0", path = "../emboss_common" }
+emboss_common = { version = "0.5.1", path = "../emboss_common" }
+heck = "0.5.0"
 proc-macro2  = "1"
 quote = "1"
 serde = { workspace = true }

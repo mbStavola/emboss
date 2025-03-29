@@ -41,9 +41,8 @@ pub(crate) fn emit(items: &[Embossable], _: &EmbossingOptions) -> TokenStream2 {
                     key, variant_name, ..
                 },
             )| {
-                let enum_variant_name = ident::enum_variant(
-                    key, variant_name.as_ref()
-                ).map(|variant_name| quote! { EmbossedKeyKind::#variant_name })?;
+                let enum_variant_name = ident::enum_variant(key, variant_name.as_ref())
+                    .map(|variant_name| quote! { EmbossedKeyKind::#variant_name })?;
                 let branch_body = get_branch_impl(index);
 
                 Some(quote! {
@@ -96,7 +95,7 @@ pub(crate) fn emit(items: &[Embossable], _: &EmbossingOptions) -> TokenStream2 {
                     #(#items_match_index_expr)*
                     _ => return None,
                 };
-                
+
                 Some(pair)
             }
 
@@ -105,7 +104,7 @@ pub(crate) fn emit(items: &[Embossable], _: &EmbossingOptions) -> TokenStream2 {
                     #(#items_match_name_expr)*
                     _ => return None,
                 };
-                
+
                 Some(pair)
             }
 

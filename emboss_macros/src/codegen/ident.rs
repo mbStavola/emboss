@@ -1,3 +1,6 @@
+use std::borrow::Cow;
+
+use heck::AsUpperCamelCase;
 use proc_macro2::{Ident, Span};
 
 pub(crate) fn key_const(index: usize) -> Ident {
@@ -26,8 +29,9 @@ pub(crate) fn value_field(index: usize) -> Ident {
 
 pub(crate) fn enum_variant(key: &String, variant_name: Option<&String>) -> Option<Ident> {
     variant_name
-        .or(Some(key))
-        .map(|variant_name| syn::parse_str::<Ident>(variant_name))
+        .map(Cow::from)
+        .or_else(|| Some(Cow::from(AsUpperCamelCase(key).to_string())))
+        .map(|variant_name| syn::parse_str::<Ident>(variant_name.as_ref()))
         .transpose()
         .ok()
         .flatten()
