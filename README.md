@@ -18,7 +18,7 @@ Include `emboss` in your `Cargo.toml`:
 # <snip>
 
 [dependencies]
-emboss = "0.5.0"
+emboss = "0.5.1"
 ```
 
 Import the emboss macro and call it with the key and value you want to embed:

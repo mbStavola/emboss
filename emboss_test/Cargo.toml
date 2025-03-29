@@ -6,5 +6,5 @@ rust-version = "1.85.0"
 publish = false
 
 [dependencies]
-emboss = { version = "0.5.0", path = "../emboss" }
+emboss = { version = "0.5.1", path = "../emboss" }
 object = "0.36.7"

@@ -14,7 +14,10 @@ pub(crate) fn emboss_token(item: Embossable, options: EmbossingOptions) -> Token
     emboss_token_multiple(vec![item], options)
 }
 
-pub(crate) fn emboss_token_multiple(items: Vec<Embossable>, options: EmbossingOptions) -> TokenStream2 {
+pub(crate) fn emboss_token_multiple(
+    items: Vec<Embossable>,
+    options: EmbossingOptions,
+) -> TokenStream2 {
     let const_decl = const_decl::emit(&items, &options);
     let packed_struct = packed::emit(&items, &options);
     let static_init = static_value::emit(&items, &options);

@@ -21,8 +21,9 @@ emboss_env!(
 
 emboss_envs!(export_name = ManyEnvVars, env_vars = [
     { env_var = "many-env-emboss-var-1" },
-    { env_var = "many-env-emboss-var-2", key = "many-env-emboss-2", fallback = Empty },
-    { env_var = "many-env-emboss-var-3", key = "many-env-emboss-3", fallback = Value("7"), variant_name = "ManyEmbossVar3" },
+    { env_var = "many-env-emboss-var-2", fallback = Empty },
+    { env_var = "many-env-emboss-var-3", key = "many-env-emboss-3", fallback = Empty },
+    { env_var = "many-env-emboss-var-4", key = "many-env-emboss-4", fallback = Value("7"), variant_name = "LastEmbossVar" },
 ], stored_in = "nowhere");
 
 fn main() {
@@ -64,23 +65,31 @@ fn main() {
     assert_eq!(value, "5");
 
     let value = *metadata
-        .get("many-env-emboss-2")
-        .expect("many-env-emboss-2 should be present");
-    assert_eq!(value, "6");
+        .get("many-env-emboss-var-2")
+        .expect("many-env-emboss-var-2 should be present");
+    assert_eq!(value, "");
 
     let value = *metadata
         .get("many-env-emboss-3")
         .expect("many-env-emboss-3 should be present");
+    assert_eq!(value, "6");
+
+    let value = *metadata
+        .get("many-env-emboss-4")
+        .expect("many-env-emboss-4 should be present");
     assert_eq!(value, "7");
 
     let field = ManyEnvVars::EMBOSSED.get_by_index(0);
     assert_eq!(field, Some(("many-env-emboss-var-1", "5")));
 
-    let field = ManyEnvVars::EMBOSSED.get_by_key("many-env-emboss-2");
-    assert_eq!(field, Some(("many-env-emboss-2", "6")));
+    let field = ManyEnvVars::EMBOSSED.get_by_kind(ManyEnvVars::EmbossedKeyKind::ManyEnvEmbossVar2);
+    assert_eq!(field, ("many-env-emboss-var-2", ""));
 
-    let field = ManyEnvVars::EMBOSSED.get_by_kind(ManyEnvVars::EmbossedKeyKind::ManyEmbossVar3);
-    assert_eq!(field, ("many-env-emboss-3", "7"));
+    let field = ManyEnvVars::EMBOSSED.get_by_key("many-env-emboss-3");
+    assert_eq!(field, Some(("many-env-emboss-3", "6")));
+
+    let field = ManyEnvVars::EMBOSSED.get_by_kind(ManyEnvVars::EmbossedKeyKind::LastEmbossVar);
+    assert_eq!(field, ("many-env-emboss-4", "7"));
 }
 
 fn get_section_data<'a>(file: &'a object::File, section_name: &str) -> HashMap<&'a str, &'a str> {

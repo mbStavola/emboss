@@ -40,7 +40,7 @@ use proc_macro::TokenStream;
 /// - When using the enum access method (`get_by_kind`), all keys must have valid variant names.
 ///
 /// # Platform-Specific Options
-/// On macOS, the `segment` parameter can be specified in addition to `stored_in` to 
+/// On macOS, the `segment` parameter can be specified in addition to `stored_in` to
 /// control the Mach-O segment where data is stored:
 ///
 /// ```rust
@@ -48,7 +48,7 @@ use proc_macro::TokenStream;
 /// emboss!(
 ///     key = "macos-release",
 ///     value = "14.0",
-///     segment = "__DATA", 
+///     segment = "__DATA",
 ///     stored_in = "__single_emboss"
 /// );
 /// ```
@@ -151,19 +151,19 @@ pub fn emboss_many(input: TokenStream) -> TokenStream {
 /// ```rust
 /// # use emboss_macros::*;
 /// emboss_env!(
-///     env_var = "GIT_BRANCH",
-///     key = "git-branch",
-///     variant_name = "GitBranch",
-///     fallback = Value("unknown"),
-///     export_name = "git_info"
+///     env_var = "CARGO_PKG_NAME",
+///     key = "package-name",
+///     variant_name = "PackageName",
+///     fallback = Value("unknown-package"),
+///     export_name = "package_info"
 /// );
 ///
 /// // When using export_name, you can access the value:
-/// let (_, branch) = git_info::EMBOSSED.get_by_key("git-branch").unwrap();
+/// let (_, name) = package_info::EMBOSSED.get_by_key("package-name").unwrap();
 /// // Or using the enum variant if specified:
-/// let (_, branch) = git_info::EMBOSSED.get_by_kind(git_info::EmbossedKeyKind::GitBranch);
+/// let (_, name) = package_info::EMBOSSED.get_by_kind(package_info::EmbossedKeyKind::PackageName);
 /// ```
-/// 
+///
 /// # Notes
 /// - Each section name must be unique within your codebase.
 /// - When using the enum access method (`get_by_kind`), all keys must have valid variant names.
@@ -175,11 +175,11 @@ pub fn emboss_many(input: TokenStream) -> TokenStream {
 /// ```rust
 /// # use emboss_macros::*;
 /// emboss_env!(
-///     env_var = "MACOS_SDK_VERSION",
-///     key = "sdk-version",
-///     variant_name = "SdkVersion",
-///     fallback = Fail,
-///     export_name = "sdk_info",
+///     env_var = "CARGO_CFG_TARGET_OS",
+///     key = "target-os",
+///     variant_name = "TargetOS",
+///     fallback = Empty,
+///     export_name = "build_info",
 ///     segment = "__DATA",
 ///     stored_in = "__env_emboss"
 /// );
@@ -199,7 +199,7 @@ pub fn emboss_env(input: TokenStream) -> TokenStream {
 /// # use emboss_macros::*;
 /// emboss_envs!(env_vars = [
 ///     { env_var = "CARGO_PKG_NAME" },
-///     { env_var = "CARGO_PKG_AUTHORS" }
+///     { env_var = "CARGO_PKG_VERSION" }
 /// ]);
 /// ```
 ///
@@ -218,14 +218,15 @@ pub fn emboss_env(input: TokenStream) -> TokenStream {
 /// emboss_envs!(
 ///     env_vars = [
 ///         {
-///             env_var = "CARGO_PKG_DESCRIPTION",
-///             key = "description",
-///             variant_name = "Description"
+///             env_var = "CARGO_PKG_VERSION",
+///             key = "version",
+///             fallback = Value("https://github.com/example/example"),
+///             variant_name = "Version"
 ///         },
 ///         {
-///             env_var = "CI_PIPELINE_ID",
-///             fallback = Value("dev-pipeline"),
-///             variant_name = "PipelineId"
+///             env_var = "CARGO_PKG_REPOSITORY",
+///             fallback = Value("0.5.0"),
+///             variant_name = "Repository"
 ///         }
 ///     ],
 ///     stored_in = "__envs_emboss",
@@ -233,8 +234,8 @@ pub fn emboss_env(input: TokenStream) -> TokenStream {
 /// );
 ///
 /// // Access values:
-/// let (_, desc) = cargo_metadata::EMBOSSED.get_by_key("description").unwrap();
-/// let (_, pipeline) = cargo_metadata::EMBOSSED.get_by_kind(cargo_metadata::EmbossedKeyKind::PipelineId);
+/// let (_, version) = cargo_metadata::EMBOSSED.get_by_key("version").unwrap();
+/// let (_, repo) = cargo_metadata::EMBOSSED.get_by_kind(cargo_metadata::EmbossedKeyKind::Repository);
 /// ```
 ///
 /// # Notes
@@ -251,19 +252,19 @@ pub fn emboss_env(input: TokenStream) -> TokenStream {
 /// emboss_envs!(
 ///     env_vars = [
 ///         {
-///             env_var = "XCODE_VERSION",
-///             key = "xcode",
-///             variant_name = "XcodeVersion"
+///             env_var = "CARGO_PKG_NAME",
+///             key = "name",
+///             variant_name = "Name"
 ///         },
 ///         {
-///             env_var = "SWIFT_VERSION",
+///             env_var = "CARGO_CFG_TARGET_ARCH",
 ///             fallback = Empty,
-///             variant_name = "SwiftVersion"
+///             variant_name = "TargetArch"
 ///         }
 ///     ],
 ///     segment = "__DATA",
-///     stored_in = "__many_env_emboss",
-///     export_name = "dev_tools"
+///     stored_in = "__many_env",
+///     export_name = "build_metadata"
 /// );
 /// ```
 #[proc_macro]
